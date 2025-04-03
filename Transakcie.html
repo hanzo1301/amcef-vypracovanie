@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transaction Uploader</title>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border: 1px solid #ddd;
+        }
+        th {
+            background-color: #4CAF50;
+            color: white;
+            font-weight: bold;
+        }
+        td {
+            background-color: #f9f9f9;
+        }
+        tr:nth-child(even) td {
+            background-color: #f2f2f2; /* Striedanie riadkov */
+        }
+        tr:hover td {
+            background-color: #f1f1f1; /* Zvýraznenie riadku pri hover */
+        }
+        h2 {
+            color: #333;
+            margin-top: 30px;
+            font-size: 1.5em;
+        }
+        button {
+            padding: 10px 15px;
+            margin-top: 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        input[type="file"] {
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+        .transaction-cell {
+            display: inline-block;
+            width: 30%;
+            margin: 10px;
+            padding: 10px;
+            background-color: #f2f2f2;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <h1>Upload Transactions</h1>
+    <input type="file" accept=".txt" onchange="handleFileUpload(event)" />
+    <button onclick="displayTransactions()">Process Transactions</button>
+
+    <div id="transaction-table"></div>
+
+    <script>
+        let uploadedTransactions = [];
+
+        // Funkcia na zoskupenie transakcií podľa rokov, zoradené od najnovších
+        const groupTransactionsByYear = (transactions) => {
+            return transactions
+                .filter(transaction => transaction.state === 'canceled')  // Filtruj zrušené transakcie
+                .map(transaction => {
+                    // Pridanie roka ako vlastnosti k transakcii
+                    return {
+                        ...transaction,
+                        year: new Date(transaction.createdAt).getFullYear()
+                    };
+                })
+                .sort((a, b) => b.createdAt - a.createdAt)  // Zoradenie od najnovšieho po najstarší
+                .reduce((acc, transaction) => {
+                    const year = transaction.year;
+                    // Zoskupenie podľa roku
+                    if (!acc[year]) acc[year] = [];
+                    acc[year].push(transaction);
+                    return acc;
+                }, {});
+        };
+
+        // Funkcia na spracovanie súboru a jeho načítanie ako text
+        const handleFileUpload = (event) => {
+            const file = event.target.files[0];
+            const reader = new FileReader();
+
+            reader.onload = (e) => {
+                try {
+                    // Načítanie textového súboru
+                    const fileContent = e.target.result;
+                    // Pokúsime sa parsovať text na JSON
+                    uploadedTransactions = JSON.parse(fileContent); // Pokúsime sa načítať JSON z textu
+                    console.log("File successfully uploaded and parsed.");
+                } catch (error) {
+                    console.error("Invalid JSON format in .txt file", error);
+                    alert("The file content is not a valid JSON.");
+                }
+            };
+
+            reader.onerror = (error) => {
+                console.error("File reading error", error);
+                alert("There was an error reading the file.");
+            };
+
+            reader.readAsText(file); // Načítať súbor ako text
+        };
+
+        // Funkcia na zobrazenie transakcií v tabuľke
+        const displayTransactions = () => {
+            if (uploadedTransactions.length === 0) {
+                alert("No transactions uploaded or file format is incorrect.");
+                return;
+            }
+
+            const grouped = groupTransactionsByYear(uploadedTransactions);
+            const container = document.getElementById("transaction-table");
+            container.innerHTML = "";
+
+            for (const year in grouped) {
+                container.innerHTML += `<h2>${year}</h2>`;
+
+                // Vytvorte novú sekciu pre každú transakciu
+                grouped[year].forEach(transaction => {
+                    const formattedDate = new Date(transaction.createdAt).toLocaleString('sk-SK', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit'
+                    });
+                    container.innerHTML += `
+                        <div class="transaction-cell">
+                            <p><strong>${transaction.customerName}</strong></p>
+                            <p><em>${formattedDate}</em></p>
+                            <p>${transaction.amount} EUR</p>
+                        </div>
+                    `;
+                });
+            }
+        };
+    </script>
+</body>
+</html>
